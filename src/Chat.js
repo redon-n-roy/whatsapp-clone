@@ -1,4 +1,4 @@
-import { Avatar, Fab, IconButton } from '@material-ui/core'
+import { Avatar, Button, IconButton, Tooltip } from '@material-ui/core'
 import { AttachFile, MoreVert, SearchOutlined } from '@material-ui/icons'
 import InsertEmoticonIcon from '@material-ui/icons/InsertEmoticon'
 import SendIcon from '@material-ui/icons/Send';
@@ -21,11 +21,10 @@ function Chat() {
     const [input, setInput] = useState("");
     const { roomId } = useParams();
     const [roomName, setRoomName] = useState("");
+    const [avatar, setAvatar] = useState("");
     const [messages, setMessages] = useState([]);
     const [{ user }, dispatch] = useStateValue();
-    const options = ['Delete room'];
     const [anchorEl, setAnchorEl] = useState(null);
-    const open = Boolean(anchorEl);
     const history = useHistory();
     const bottomRef = useRef();
     const [valid,setValid] = useState(true);
@@ -58,13 +57,26 @@ function Chat() {
         setAnchorEl(event.currentTarget);
       };
     
-    const handleSelect = async(e) => {
+    const handleDeleteRoom = async(e) => {
         e.preventDefault();
         setAnchorEl(null);
         
         if(window.confirm("Do you want to delete the room?") == true && roomId) {
             await history.push("/");
             await db.collection('rooms').doc(roomId).delete()
+        }
+    };
+
+    const handleDeleteDP = async(e) => {
+        e.preventDefault();
+        setAnchorEl(null);
+        
+        if(window.confirm("Do you want to delete DP for the room?") == true && roomId) {
+            await storage.refFromURL(avatar).delete().catch(err => window.alert(err))
+
+            await db.collection('rooms').doc(roomId).set({
+                avatar: ''
+            }, {merge: true});
         }
     };
 
@@ -81,7 +93,8 @@ function Chat() {
     useEffect(() => {
         if(roomId) {
             db.collection('rooms').doc(roomId).onSnapshot(snapshot => (
-                setRoomName(snapshot.data()?.name)
+                setRoomName(snapshot.data()?.name),
+                setAvatar(snapshot.data()?.avatar)
             ));
 
             db.collection('rooms').doc(roomId).collection('messages')
@@ -120,8 +133,20 @@ function Chat() {
         });
     };
 
+    const uploadAvatar = async(avatar) => {
+        const d = new Date();
+        const storageRef = storage.ref()
+        const fileRef = storageRef.child("WC-avatar-" + d.getTime() )
+        await fileRef.put(avatar)
+        db.collection('rooms').doc(roomId).set({
+            avatar: await fileRef.getDownloadURL()
+        }, {merge: true});
+
+        setAvatar("")
+    };
+
     const compressOptions = {
-        maxSizeMB: 2,
+        maxSizeMB: 1,
         maxWidthOrHeight: 1280,
         useWebWorker: true
     }
@@ -130,6 +155,16 @@ function Chat() {
         try{
             const compressedFile = await imageCompression(e.target.files[0], compressOptions);
             uploadFile(compressedFile);
+        } catch (error) {
+            alert("An error occured : " + error)
+        }
+        
+    }
+
+    const onAvatarChange = async(e) => {
+        try{
+            const compressedFile = await imageCompression(e.target.files[0], compressOptions);
+            uploadAvatar(compressedFile);
         } catch (error) {
             alert("An error occured : " + error)
         }
@@ -153,8 +188,16 @@ function Chat() {
     return (
         <div className='chat'>
             <div className="chat__header">
-                <Avatar src={`https://ui-avatars.com/api/?background=random&name=${roomName}`}/>
-
+                <input accept="image/*" id="contained-button-avatar" type="file"
+                    onChange={onAvatarChange} hidden
+                />
+                <Tooltip title="Change DP">
+                <Button>
+                <label className="chat__hiddenLabel" htmlFor="contained-button-avatar">
+                    <Avatar src={avatar ? avatar : `https://ui-avatars.com/api/?background=random&name=${roomName}`}/>
+                </label>
+                </Button>
+                </Tooltip>
                 <div className="chat__headerInfo">
                     <h3>{roomName}</h3>
                     <p>Last seen{" "}
@@ -166,38 +209,30 @@ function Chat() {
                     <IconButton>
                         <SearchOutlined />
                     </IconButton>
-                    <input
-                    accept="image/*"
-                    id="contained-button-file"
-                    type="file"
-                    onChange={onFileChange}
-                    hidden
+                    <input accept="image/*" id="contained-button-file" type="file"
+                    onChange={onFileChange} hidden
                     />
+                    <Tooltip title="Send Image">
                     <IconButton>
                         <label className="chat__hiddenLabel" htmlFor="contained-button-file">
                             <AttachFile />
                         </label>
                     </IconButton>
+                    </Tooltip>
+                    <Tooltip title="More Options">
                     <IconButton aria-label="more" aria-controls="long-menu" aria-haspopup="true" onClick={handleClick}>
                         <MoreVert />
                     </IconButton>
+                    </Tooltip>
                     <Menu
-                        id="long-menu"
+                        id="simple-menu"
                         anchorEl={anchorEl}
                         keepMounted
-                        open={open}
+                        open={Boolean(anchorEl)}
                         onClose={handleClose}
-                        PaperProps={{
-                        style: {
-                            width: '20ch',
-                        },
-                        }}
                     >
-                        {options.map((option) => (
-                        <MenuItem key={option} onClick={handleSelect}>
-                            {option}
-                        </MenuItem>
-                        ))}
+                    <MenuItem onClick={handleDeleteRoom}>Delete room</MenuItem>
+                    <MenuItem onClick={handleDeleteDP}>Delete DP</MenuItem>   
                     </Menu>
                 </div>
             </div>
@@ -221,27 +256,32 @@ function Chat() {
 
             <div className="chat__footer" >
                 <div className="chat__footerEmojiDiv">
-                    <div className="chat__footerEmoji">
+                    <div className="chat__footerEmoji" onBlur={() => setEmojiVisibility(false)}>
                         {emojiVisibility && <Picker
                             title="Pick your emoji…"
                             emoji="point_up"
                             set='twitter'
                             sheetSize='32'
-                            onSelect={emoji => setInput(input + emoji.native)}
+                            onSelect={emoji => setInput(input + emoji.native)
+                            }
                         />}
                     </div>
                 </div>
-                <IconButton onClick={() => setEmojiVisibility(!emojiVisibility)}>
+                <Tooltip title="Choose Emoji" placement="top-start">
+                <IconButton onClick={() => setEmojiVisibility(!emojiVisibility)} onBlur={() => setEmojiVisibility(false)}>
                     <InsertEmoticonIcon />
                 </IconButton>
+                </Tooltip>
                 <form>
-                    <input value={input} onChange={e => setInput(e.target.value)} onFocus={() => setEmojiVisibility(false)}  placeholder="Type a message" 
+                    <input value={input} onChange={e => setInput(e.target.value)} placeholder="Type a message" 
                     type="text" />
-                    <button onClick={sendMessage} onFocus={() => setEmojiVisibility(false)} type="submit">Send a message</button>
+                    <button onClick={sendMessage} type="submit">Send a message</button>
                 </form>
-                <IconButton onClick={sendMessage} onFocus={() => setEmojiVisibility(false)} >
+                <Tooltip title="Send Message" placement="top-end">
+                <IconButton onClick={sendMessage}>
                     <SendIcon />
                 </IconButton>
+                </Tooltip>
             </div>
         </div>
     )

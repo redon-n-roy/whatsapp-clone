@@ -4,7 +4,7 @@ import db from './firebase'
 import './SidebarChat.css'
 import { Link } from 'react-router-dom'
 
-function SidebarChat({id, name, addNewChat}) {
+function SidebarChat({id, data, addNewChat}) {
 
     const [messages, setMessages] = useState("");
     useEffect(() => {
@@ -21,23 +21,24 @@ function SidebarChat({id, name, addNewChat}) {
 
         if(roomName) {
             db.collection('rooms').add({
-                name: roomName
+                name: roomName,
+                avatar: ''
             });
         }
     };
 
     return !addNewChat ? (
-            <Link to={`/rooms/${id}`}>
-                <div className="sidebarChat">
-                    <Avatar src={`https://ui-avatars.com/api/?background=random&name=${name}`}/>
-                    <div className="sidebarChat__info">
-                        <h2>{name}</h2>
-                        <p>{<b>{messages[0]?.name}</b>}{messages[0] ? ' : ':''}
-                        {(messages[0]?.message) ? messages[0]?.message.slice(0,20)+((messages[0]?.message.length > 20) ? '...': '') 
-                        : (messages[0]?.image) ? '📷' : ''}</p>
-                    </div>
+        <Link to={`/rooms/${id}`}>   
+            <div className="sidebarChat">
+                <Avatar src={data.avatar ? data.avatar : `https://ui-avatars.com/api/?background=random&name=${data.name}`}/>
+                <div className="sidebarChat__info">
+                    <h2>{data.name}</h2>
+                    <p>{<b>{messages[0]?.name}</b>}{messages[0] ? ' : ':''}
+                    {(messages[0]?.message) ? messages[0]?.message.slice(0,20)+((messages[0]?.message.length > 20) ? '...': '') 
+                    : (messages[0]?.image) ? '📷' : ''}</p>
                 </div>
-            </Link>
+            </div>
+        </Link>
     ): (
         <div onClick={createChat} className="sidebarChat">
             <h2>Add new chat</h2>
