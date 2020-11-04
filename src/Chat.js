@@ -28,13 +28,16 @@ function Chat() {
     const open = Boolean(anchorEl);
     const history = useHistory();
     const bottomRef = useRef();
+    const [valid,setValid] = useState(true);
     const [emojiVisibility, setEmojiVisibility] = useState(false);
 
     const scrollToBottom = () => {
+        if(valid){
         bottomRef.current.scrollIntoView({
         behavior: "smooth",
         block: "start",
         });
+        }
     }
 
    /* useEffect(() => {
@@ -67,7 +70,13 @@ function Chat() {
 
     const handleClose = () => {
         setAnchorEl(null);
-      };
+    };
+
+    useEffect(() => {
+        db.collection('rooms').doc(roomId).onSnapshot(snapshot => (
+            setValid(snapshot.exists)
+        ))
+    })
 
     useEffect(() => {
         if(roomId) {
@@ -98,8 +107,9 @@ function Chat() {
     };
 
     const uploadFile = async(file) => {
+        const d = new Date();
         const storageRef = storage.ref()
-        const fileRef = storageRef.child(file.name)
+        const fileRef = storageRef.child("WC-" + d.getTime() )
         await fileRef.put(file)
         db.collection('rooms').doc(roomId).collection('messages').add({
             message: '',
@@ -139,6 +149,7 @@ function Chat() {
         }
     }
 
+    if(valid) {
     return (
         <div className='chat'>
             <div className="chat__header">
@@ -234,6 +245,9 @@ function Chat() {
             </div>
         </div>
     )
+    } else {
+        return("")
+    }
 }
 
 export default Chat
