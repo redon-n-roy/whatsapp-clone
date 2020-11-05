@@ -39,12 +39,10 @@ function Chat() {
         }
     }
 
-   /* useEffect(() => {
-        setTimeout(() => {
-            scrollToBottom()
-        },300)
-        
-    }, [messages]) */
+    /*const redirectHome = (e) => {
+        e.preventDefault();
+        history.push("/");
+    }*/
 
     useEffect(() => {
         setTimeout(() => {
@@ -63,6 +61,9 @@ function Chat() {
         
         if(window.confirm("Do you want to delete the room?") == true && roomId) {
             await history.push("/");
+            if(avatar){
+                await storage.refFromURL(avatar).delete().catch(err => window.alert(err))
+            }
             await db.collection('rooms').doc(roomId).delete()
         }
     };
@@ -88,6 +89,9 @@ function Chat() {
         db.collection('rooms').doc(roomId).onSnapshot(snapshot => (
             setValid(snapshot.exists)
         ))
+        if(valid===false) {
+            history.push("/");
+        }
     })
 
     useEffect(() => {
@@ -133,11 +137,14 @@ function Chat() {
         });
     };
 
-    const uploadAvatar = async(avatar) => {
+    const uploadAvatar = async(avatarFile) => {
         const d = new Date();
         const storageRef = storage.ref()
         const fileRef = storageRef.child("WC-avatar-" + d.getTime() )
-        await fileRef.put(avatar)
+        await fileRef.put(avatarFile)
+        if(avatar){
+            await storage.refFromURL(avatar).delete().catch(err => window.alert(err))
+        }
         db.collection('rooms').doc(roomId).set({
             avatar: await fileRef.getDownloadURL()
         }, {merge: true});
@@ -148,6 +155,12 @@ function Chat() {
     const compressOptions = {
         maxSizeMB: 1,
         maxWidthOrHeight: 1280,
+        useWebWorker: true
+    }
+
+    const compressAvatarOptions = {
+        maxSizeMB: 0.5,
+        maxWidthOrHeight: 640,
         useWebWorker: true
     }
 
@@ -163,8 +176,8 @@ function Chat() {
 
     const onAvatarChange = async(e) => {
         try{
-            const compressedFile = await imageCompression(e.target.files[0], compressOptions);
-            uploadAvatar(compressedFile);
+            const compressedAvatar = await imageCompression(e.target.files[0], compressAvatarOptions);
+            uploadAvatar(compressedAvatar);
         } catch (error) {
             alert("An error occured : " + error)
         }
@@ -184,18 +197,14 @@ function Chat() {
         }
     }
 
-    if(valid) {
-    return (
+    return valid ? (
         <div className='chat'>
             <div className="chat__header">
-                <input accept="image/*" id="contained-button-avatar" type="file"
-                    onChange={onAvatarChange} hidden
-                />
-                <Tooltip title="Change DP">
+                <Tooltip title="View DP">
                 <Button>
-                <label className="chat__hiddenLabel" htmlFor="contained-button-avatar">
+                <SRLWrapper options = {SRLoptions}>
                     <Avatar src={avatar ? avatar : `https://ui-avatars.com/api/?background=random&name=${roomName}`}/>
-                </label>
+                </SRLWrapper>
                 </Button>
                 </Tooltip>
                 <div className="chat__headerInfo">
@@ -224,6 +233,9 @@ function Chat() {
                         <MoreVert />
                     </IconButton>
                     </Tooltip>
+                    <input accept="image/*" id="contained-button-avatar" type="file"
+                        onChange={onAvatarChange} hidden
+                    />
                     <Menu
                         id="simple-menu"
                         anchorEl={anchorEl}
@@ -232,7 +244,12 @@ function Chat() {
                         onClose={handleClose}
                     >
                     <MenuItem onClick={handleDeleteRoom}>Delete room</MenuItem>
-                    <MenuItem onClick={handleDeleteDP}>Delete DP</MenuItem>   
+                    <MenuItem>
+                    <label className="chat__hiddenLabel" htmlFor="contained-button-avatar">
+                        Change DP
+                    </label>
+                    </MenuItem>
+                    <MenuItem onClick={handleDeleteDP}>Delete DP</MenuItem>
                     </Menu>
                 </div>
             </div>
@@ -268,26 +285,24 @@ function Chat() {
                     </div>
                 </div>
                 <Tooltip title="Choose Emoji" placement="top-start">
-                <IconButton onClick={() => setEmojiVisibility(!emojiVisibility)} onBlur={() => setEmojiVisibility(false)}>
+                <IconButton onClick={() => setEmojiVisibility(!emojiVisibility)}>
                     <InsertEmoticonIcon />
                 </IconButton>
                 </Tooltip>
                 <form>
                     <input value={input} onChange={e => setInput(e.target.value)} placeholder="Type a message" 
-                    type="text" />
-                    <button onClick={sendMessage} type="submit">Send a message</button>
+                    type="text" onFocus={() => setEmojiVisibility(false)}/>
+                    <button onClick={sendMessage} onFocus={() => setEmojiVisibility(false)} type="submit">Send a message</button>
                 </form>
                 <Tooltip title="Send Message" placement="top-end">
-                <IconButton onClick={sendMessage}>
+                <IconButton onClick={sendMessage} onFocus={() => setEmojiVisibility(false)}>
                     <SendIcon />
                 </IconButton>
                 </Tooltip>
             </div>
         </div>
-    )
-    } else {
-        return("")
-    }
+    ) : (" ")
+
 }
 
 export default Chat
