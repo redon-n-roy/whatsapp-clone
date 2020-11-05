@@ -18,7 +18,7 @@
 
 --->Share images in chat.
 
----> Update and delete DP for each room.
+--->Update and delete DP for each room.
 
 --->Shared images and DP can be viewed using lightbox.
 
