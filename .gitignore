@@ -21,7 +21,6 @@
 .firebase
 .firebaserc
 firebase.json
-/README.md
 
 npm-debug.log*
 yarn-debug.log*
