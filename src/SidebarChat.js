@@ -3,10 +3,12 @@ import React, { useEffect, useState } from 'react'
 import db from './firebase'
 import './SidebarChat.css'
 import { Link } from 'react-router-dom'
+import { useStateValue } from './StateProvider'
 
 function SidebarChat({id, data, addNewChat}) {
 
     const [messages, setMessages] = useState("");
+    const [{ user }, dispatch] = useStateValue();
     useEffect(() => {
         if(id) {
             db.collection('rooms').doc(id).collection('messages')
@@ -18,11 +20,12 @@ function SidebarChat({id, data, addNewChat}) {
 
     const createChat = () => {
         const roomName = prompt("Please enter name for chat room");
-
+        
         if(roomName) {
             db.collection('rooms').add({
                 name: roomName,
-                avatar: ''
+                avatar: '',
+                admin: user.uid
             });
         }
     };

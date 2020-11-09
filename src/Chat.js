@@ -23,6 +23,7 @@ function Chat() {
     const [roomName, setRoomName] = useState("");
     const [avatar, setAvatar] = useState("");
     const [messages, setMessages] = useState([]);
+    const [admin, setAdmin] = useState("");
     const [{ user }, dispatch] = useStateValue();
     const [anchorEl, setAnchorEl] = useState(null);
     const history = useHistory();
@@ -39,11 +40,6 @@ function Chat() {
         }
     }
 
-    /*const redirectHome = (e) => {
-        e.preventDefault();
-        history.push("/");
-    }*/
-
     useEffect(() => {
         setTimeout(() => {
             scrollToBottom()
@@ -58,26 +54,38 @@ function Chat() {
     const handleDeleteRoom = async(e) => {
         e.preventDefault();
         setAnchorEl(null);
-        
-        if(window.confirm("Do you want to delete the room?") == true && roomId) {
-            await history.push("/");
-            if(avatar){
-                await storage.refFromURL(avatar).delete().catch(err => window.alert(err))
+
+        if(admin === user.uid) {
+            if(window.confirm("Do you want to delete the room?") == true && roomId) {
+                await history.push("/");
+                if(avatar){
+                    await storage.refFromURL(avatar).delete().catch(err => window.alert(err))
+                }
+                await db.collection('rooms').doc(roomId).delete()
             }
-            await db.collection('rooms').doc(roomId).delete()
+        } else {
+            window.alert("Only admin can delete the room")
         }
     };
 
     const handleDeleteDP = async(e) => {
         e.preventDefault();
         setAnchorEl(null);
-        
-        if(window.confirm("Do you want to delete DP for the room?") == true && roomId) {
-            await storage.refFromURL(avatar).delete().catch(err => window.alert(err))
 
-            await db.collection('rooms').doc(roomId).set({
-                avatar: ''
-            }, {merge: true});
+        if(admin === user.uid) {
+            if(avatar) {
+                if(window.confirm("Do you want to delete DP for the room?") == true && roomId) {
+                    await storage.refFromURL(avatar).delete().catch(err => window.alert(err))
+
+                    await db.collection('rooms').doc(roomId).set({
+                        avatar: ''
+                    }, {merge: true});
+                }
+            } else {
+                window.alert("DP doesn't exists");
+            }} 
+        else { 
+            window.alert("Only admin can delete the DP");
         }
     };
 
@@ -98,7 +106,8 @@ function Chat() {
         if(roomId) {
             db.collection('rooms').doc(roomId).onSnapshot(snapshot => (
                 setRoomName(snapshot.data()?.name),
-                setAvatar(snapshot.data()?.avatar)
+                setAvatar(snapshot.data()?.avatar),
+                setAdmin(snapshot.data()?.admin)
             ));
 
             db.collection('rooms').doc(roomId).collection('messages')
@@ -116,6 +125,7 @@ function Chat() {
                 message: input,
                 image: '',
                 name: user.displayName,
+                uid: user.uid,
                 timestamp: firebase.firestore.FieldValue.serverTimestamp()
             });
         }
@@ -138,18 +148,22 @@ function Chat() {
     };
 
     const uploadAvatar = async(avatarFile) => {
-        const d = new Date();
-        const storageRef = storage.ref()
-        const fileRef = storageRef.child("WC-avatar-" + d.getTime() )
-        await fileRef.put(avatarFile)
-        if(avatar){
-            await storage.refFromURL(avatar).delete().catch(err => window.alert(err))
-        }
-        db.collection('rooms').doc(roomId).set({
-            avatar: await fileRef.getDownloadURL()
-        }, {merge: true});
+        if(admin === user.uid) {
+            const d = new Date();
+            const storageRef = storage.ref()
+            const fileRef = storageRef.child("WC-avatar-" + d.getTime() )
+            await fileRef.put(avatarFile)
+            if(avatar){
+                await storage.refFromURL(avatar).delete().catch(err => window.alert(err))
+            }
+            db.collection('rooms').doc(roomId).set({
+                avatar: await fileRef.getDownloadURL()
+            }, {merge: true});
 
-        setAvatar("")
+            setAvatar("")
+        } else {
+            window.alert("Only admin can change the DP")
+        }
     };
 
     const compressOptions = {
@@ -256,8 +270,8 @@ function Chat() {
 
             <div className="chat__body">
                 {messages.map(message => (
-                    <p className={`chat__message ${message.name === user.displayName && "chat__receiver"}`}>
-                        <span className="chat__name">{message.name}</span>
+                    <p className={`chat__message ${message.uid === user.uid && "chat__receiver"}`}>
+                        <span className="chat__name">{message.name}{admin===message.uid ? " (admin)" : ""}</span>
                         {message.message}
                         {
                             (message.image)?
