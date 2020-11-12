@@ -16,6 +16,11 @@ import imageCompression from 'browser-image-compression'
 import { storage } from './firebase'
 import { SRLWrapper } from "simple-react-lightbox"
 
+const initialMsgState = {
+    mouseX: null,
+    mouseY: null,
+};
+
 function Chat() {
 
     const [input, setInput] = useState("");
@@ -30,6 +35,29 @@ function Chat() {
     const bottomRef = useRef();
     const [valid,setValid] = useState(true);
     const [emojiVisibility, setEmojiVisibility] = useState(false);
+    const [msgState, setMsgState] = useState(initialMsgState);
+    const [delMsg,setDelMsg] = useState("")
+
+    const handleMsgClick = (event,msgId) => {
+        event.preventDefault();
+        setDelMsg(msgId);
+        setMsgState({
+          mouseX: event.clientX - 2,
+          mouseY: event.clientY - 4,
+        });
+    };
+    
+    const handleMsgClose = () => {
+        setMsgState(initialMsgState);
+        setDelMsg("");
+    };
+
+    const deleteMsg = async(event) => {
+        event.preventDefault();
+        setMsgState(initialMsgState);
+        await db.collection('rooms').doc(roomId).collection('messages').doc(delMsg).delete();
+        setDelMsg("");
+    }
 
     const scrollToBottom = () => {
         if(valid){
@@ -45,7 +73,14 @@ function Chat() {
             scrollToBottom()
         },800)
         
-    }, [messages.length-1])
+    }, [messages])
+
+    useEffect(() => {
+        setTimeout(() => {
+            scrollToBottom()
+        },800)
+        
+    }, [roomId])
 
     const handleClick = (event) => {
         setAnchorEl(event.currentTarget);
@@ -94,26 +129,34 @@ function Chat() {
     };
 
     useEffect(() => {
-        db.collection('rooms').doc(roomId).onSnapshot(snapshot => (
+        const unsubscribe = db.collection('rooms').doc(roomId).onSnapshot(snapshot => (
             setValid(snapshot.exists)
         ))
         if(valid===false) {
             history.push("/");
         }
+        return () => {
+            unsubscribe();
+        };
     })
 
     useEffect(() => {
         if(roomId) {
-            db.collection('rooms').doc(roomId).onSnapshot(snapshot => (
+            const unsubscribe = db.collection('rooms').doc(roomId).onSnapshot(snapshot => (
                 setRoomName(snapshot.data()?.name),
                 setAvatar(snapshot.data()?.avatar),
                 setAdmin(snapshot.data()?.admin)
             ));
 
-            db.collection('rooms').doc(roomId).collection('messages')
+            const unsubscribeTS = db.collection('rooms').doc(roomId).collection('messages')
             .orderBy('timestamp', 'asc').onSnapshot(snapshot => (
                 setMessages(snapshot.docs?.map(doc => doc.data()))
             ))
+
+            return () => {
+                unsubscribe();
+                unsubscribeTS();
+            };
         }
     }, [roomId]);
 
@@ -121,13 +164,18 @@ function Chat() {
         e.preventDefault();
 
         if(input != '') {
-            db.collection('rooms').doc(roomId).collection('messages').add({
+            const msgKey= await db.collection('rooms').doc(roomId).collection('messages').doc()
+            msgKey.set({
                 message: input,
                 image: '',
                 name: user.displayName,
                 uid: user.uid,
-                timestamp: firebase.firestore.FieldValue.serverTimestamp()
+                timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+                mid: msgKey.id
             });
+            db.collection('rooms').doc(roomId).set({
+                timestamp: firebase.firestore.FieldValue.serverTimestamp()
+            }, {merge: true});
         }
 
         setInput("");
@@ -138,12 +186,14 @@ function Chat() {
         const storageRef = storage.ref()
         const fileRef = storageRef.child("WC-" + d.getTime() )
         await fileRef.put(file)
-        db.collection('rooms').doc(roomId).collection('messages').add({
+        const msgKey = db.collection('rooms').doc(roomId).collection('messages').doc()
+        msgKey.set({
             message: '',
             image: await fileRef.getDownloadURL(),
             name: user.displayName,
-            timestamp: firebase.firestore.FieldValue.serverTimestamp()
-
+            uid: user.uid,
+            timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+            mid: msgKey.id
         });
     };
 
@@ -224,7 +274,7 @@ function Chat() {
                 <div className="chat__headerInfo">
                     <h3>{roomName}</h3>
                     <p>Last seen{" "}
-                    {(messages[messages.length-1]?.timestamp) ? new Date(messages[messages.length-1]?.timestamp?.toDate()).toUTCString() : "Never"}
+                    {(messages[messages.length-1]?.timestamp) ? new Date(messages[messages.length-1]?.timestamp?.toDate()).toLocaleString() : "Never"}
                     </p>
                 </div>
 
@@ -270,7 +320,8 @@ function Chat() {
 
             <div className="chat__body">
                 {messages.map(message => (
-                    <p className={`chat__message ${message.uid === user.uid && "chat__receiver"}`}>
+                    <p className={`chat__message ${message.uid === user.uid && "chat__receiver"}`} 
+                        onContextMenu={message.uid === user.uid ? (e) => {handleMsgClick(e, message.mid)} : undefined}>
                         <span className="chat__name">{message.name}{admin===message.uid ? " (admin)" : ""}</span>
                         {message.message}
                         {
@@ -279,7 +330,20 @@ function Chat() {
                             <img className="chat__image" src={message.image}/>
                             </SRLWrapper> : ''
                         }
-                        <span className="chat__timestamp">{new Date(message.timestamp?.toDate()).toUTCString()}</span>
+                        <span className="chat__timestamp">{new Date(message.timestamp?.toDate()).toLocaleString()}</span>
+                        <Menu
+                            keepMounted
+                            open={msgState.mouseY !== null}
+                            onClose={handleMsgClose}
+                            anchorReference="anchorPosition"
+                            anchorPosition={
+                            msgState.mouseY !== null && msgState.mouseX !== null
+                                ? { top: msgState.mouseY, left: msgState.mouseX }
+                                : undefined
+                            }
+                        >
+                            <MenuItem onClick={deleteMsg}>Delete</MenuItem>
+                        </Menu>
                     </p>
                 ))}
                 <div ref={bottomRef} className="chat__bottomRef"></div>

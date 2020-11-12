@@ -4,6 +4,7 @@ import db from './firebase'
 import './SidebarChat.css'
 import { Link } from 'react-router-dom'
 import { useStateValue } from './StateProvider'
+import firebase from 'firebase'
 
 function SidebarChat({id, data, addNewChat}) {
 
@@ -25,7 +26,8 @@ function SidebarChat({id, data, addNewChat}) {
             db.collection('rooms').add({
                 name: roomName,
                 avatar: '',
-                admin: user.uid
+                admin: user.uid,
+                timestamp: firebase.firestore.FieldValue.serverTimestamp()
             });
         }
     };
