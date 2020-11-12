@@ -36,11 +36,11 @@ function Chat() {
     const [valid,setValid] = useState(true);
     const [emojiVisibility, setEmojiVisibility] = useState(false);
     const [msgState, setMsgState] = useState(initialMsgState);
-    const [delMsg,setDelMsg] = useState("")
+    const [delMsg,setDelMsg] = useState([])
 
-    const handleMsgClick = (event,msgId) => {
+    const handleMsgClick = (event,msg) => {
         event.preventDefault();
-        setDelMsg(msgId);
+        setDelMsg(msg);
         setMsgState({
           mouseX: event.clientX - 2,
           mouseY: event.clientY - 4,
@@ -49,14 +49,17 @@ function Chat() {
     
     const handleMsgClose = () => {
         setMsgState(initialMsgState);
-        setDelMsg("");
+        setDelMsg([]);
     };
 
     const deleteMsg = async(event) => {
         event.preventDefault();
         setMsgState(initialMsgState);
-        await db.collection('rooms').doc(roomId).collection('messages').doc(delMsg).delete();
-        setDelMsg("");
+        await db.collection('rooms').doc(roomId).collection('messages').doc(delMsg.mid).delete();
+        if(delMsg.image){
+            await storage.refFromURL(delMsg.image).delete().catch(err => window.alert(err))
+        }
+        setDelMsg([]);
     }
 
     const scrollToBottom = () => {
@@ -274,7 +277,7 @@ function Chat() {
                 <div className="chat__headerInfo">
                     <h3>{roomName}</h3>
                     <p>Last seen{" "}
-                    {(messages[messages.length-1]?.timestamp) ? new Date(messages[messages.length-1]?.timestamp?.toDate()).toLocaleString() : "Never"}
+                    {(messages[messages.length-1]?.timestamp) ? new Date(messages[messages.length-1]?.timestamp?.toDate()).toLocaleString([],{hour12:true}) : "Never"}
                     </p>
                 </div>
 
@@ -321,7 +324,7 @@ function Chat() {
             <div className="chat__body">
                 {messages.map(message => (
                     <p className={`chat__message ${message.uid === user.uid && "chat__receiver"}`} 
-                        onContextMenu={message.uid === user.uid ? (e) => {handleMsgClick(e, message.mid)} : undefined}>
+                        onContextMenu={message.uid === user.uid ? (e) => {handleMsgClick(e, message)} : undefined}>
                         <span className="chat__name">{message.name}{admin===message.uid ? " (admin)" : ""}</span>
                         {message.message}
                         {
@@ -330,7 +333,7 @@ function Chat() {
                             <img className="chat__image" src={message.image}/>
                             </SRLWrapper> : ''
                         }
-                        <span className="chat__timestamp">{new Date(message.timestamp?.toDate()).toLocaleString()}</span>
+                        <span className="chat__timestamp">{new Date(message.timestamp?.toDate()).toLocaleString([],{hour12:true})}</span>
                         <Menu
                             keepMounted
                             open={msgState.mouseY !== null}
