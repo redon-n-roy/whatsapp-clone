@@ -94,7 +94,7 @@ function Chat() {
         setAnchorEl(null);
 
         if(admin === user.uid) {
-            if(window.confirm("Do you want to delete the room?") == true && roomId) {
+            if(window.confirm("Do you want to delete the room?") === true && roomId) {
                 await history.push("/");
                 if(avatar){
                     await storage.refFromURL(avatar).delete().catch(err => window.alert(err))
@@ -112,7 +112,7 @@ function Chat() {
 
         if(admin === user.uid) {
             if(avatar) {
-                if(window.confirm("Do you want to delete DP for the room?") == true && roomId) {
+                if(window.confirm("Do you want to delete DP for the room?") === true && roomId) {
                     await storage.refFromURL(avatar).delete().catch(err => window.alert(err))
 
                     await db.collection('rooms').doc(roomId).set({
@@ -166,7 +166,7 @@ function Chat() {
     const sendMessage = async(e) => {
         e.preventDefault();
 
-        if(input != '') {
+        if(input !== '') {
             const msgKey= await db.collection('rooms').doc(roomId).collection('messages').doc()
             msgKey.set({
                 message: input,
