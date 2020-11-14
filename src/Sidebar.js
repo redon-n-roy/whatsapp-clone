@@ -8,11 +8,35 @@ import { SearchOutlined } from '@material-ui/icons'
 import SidebarChat from './SidebarChat'
 import db from './firebase'
 import { useStateValue } from './StateProvider'
+import Menu from '@material-ui/core/Menu'
+import MenuItem from '@material-ui/core/MenuItem'
+import {auth} from './firebase'
+import { useHistory } from 'react-router-dom'
 
 function Sidebar() {
 
     const [rooms,setRooms] = useState([]);
     const [{ user }, dispatch] = useStateValue();
+    const [sbAnchorEl, setSbAnchorEl] = useState(null);
+    const history = useHistory();
+
+    const handleSbClick = (event) => {
+        setSbAnchorEl(event.currentTarget);
+    };
+
+    const handleSbClose = () => {
+        setSbAnchorEl(null);
+    };
+
+    const handleLogout = async() => {
+        await auth.signOut().then(function() {
+            window.alert("Signed out successfully !")
+          }).catch(function(error) {
+            window.alert("Error occured: " + error)
+          });
+        await history.push("/");
+        window.location.reload(true);
+    };
 
     useEffect(() => {
         const unsubscribe = db.collection('rooms').orderBy('timestamp','desc').onSnapshot(snapshot => (
@@ -39,9 +63,18 @@ function Sidebar() {
                     <IconButton>
                         <ChatIcon />
                     </IconButton>
-                    <IconButton>
+                    <IconButton aria-label="more" aria-controls="simple-menu" aria-haspopup="true" onClick={handleSbClick}>
                         <MoreVertIcon />
                     </IconButton>
+                    <Menu
+                        id="simple-menu"
+                        anchorEl={sbAnchorEl}
+                        keepMounted
+                        open={Boolean(sbAnchorEl)}
+                        onClose={handleSbClose}
+                    >
+                    <MenuItem onClick={handleLogout}>Logout</MenuItem>
+                    </Menu>
                 </div>
             </div>
 

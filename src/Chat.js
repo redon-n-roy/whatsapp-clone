@@ -87,7 +87,7 @@ function Chat() {
 
     const handleClick = (event) => {
         setAnchorEl(event.currentTarget);
-      };
+    };
     
     const handleDeleteRoom = async(e) => {
         e.preventDefault();
@@ -296,7 +296,7 @@ function Chat() {
                     </IconButton>
                     </Tooltip>
                     <Tooltip title="More Options">
-                    <IconButton aria-label="more" aria-controls="long-menu" aria-haspopup="true" onClick={handleClick}>
+                    <IconButton aria-label="more" aria-controls="simple-menu" aria-haspopup="true" onClick={handleClick}>
                         <MoreVert />
                     </IconButton>
                     </Tooltip>
